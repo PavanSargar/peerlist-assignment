@@ -6,6 +6,9 @@ import React, {
   useCallback,
   useState,
 } from "react";
+import { Reorder, useDragControls } from "framer-motion";
+import { useQuestionStore } from "@/store/question-store";
+import { Question } from "./question-list";
 import InputTypesDropdown from "./input-types-dropdown";
 import ShortTextIcon from "@/assets/short-text-icon";
 import DragDrop from "@/assets/drag-drop";
@@ -13,9 +16,7 @@ import HashtagIcon from "@/assets/hashtag-icon";
 import RadioIcon from "@/assets/radio-icon";
 import LinkIcon from "@/assets/link-icon";
 import LongTextIcon from "@/assets/long-text-icon";
-import { Reorder, useDragControls } from "framer-motion";
-import { Question } from "./question-list";
-import { useQuestionStore } from "@/store/question-store";
+
 import RadioSwitch from "@/assets/radio-switch";
 
 export type QuestionType =
@@ -40,6 +41,7 @@ interface QuestionBlockProps {
 
   index: number;
   isQuestionState: boolean;
+  isValid: boolean;
 }
 
 const getQuestionTypeIcon = (type: QuestionType) => {
@@ -59,18 +61,23 @@ const getQuestionTypeIcon = (type: QuestionType) => {
   }
 };
 
+const debounce = (func: Function, delay: number) => {
+  let timeoutId: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), delay);
+  };
+};
+
 const QuestionBlock = forwardRef<HTMLDivElement, QuestionBlockProps>(
   (props, ref) => {
     const {
       type,
-      radioOptions,
       index,
       onQuestionTypeChange,
       question,
-      onInputChange,
-      onRadioChange,
-      onQuestionChange,
       isQuestionState = true,
+      isValid: isAnswerInputValid,
     } = props;
     const id = useId();
     const dragControls = useDragControls();
@@ -82,32 +89,13 @@ const QuestionBlock = forwardRef<HTMLDivElement, QuestionBlockProps>(
     //* for mobile screens
     const iRef = React.useRef<HTMLDivElement>(null);
     useEffect(() => {
-      const touchHandler: React.TouchEventHandler<HTMLElement> = (e) =>
-        e.preventDefault();
-
       const iTag = iRef.current;
-
       if (iTag) {
-        // @ts-expect-error
-        iTag.addEventListener("touchstart", touchHandler, { passive: false });
-
         return () => {
-          //@ts-expect-error
-          iTag.removeEventListener("touchstart", touchHandler, {
-            passive: false,
-          });
+          iTag.remove();
         };
       }
     }, [iRef]);
-
-    // Add debounce function
-    const debounce = (func: Function, delay: number) => {
-      let timeoutId: NodeJS.Timeout;
-      return (...args: any[]) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => func(...args), delay);
-      };
-    };
 
     const debouncedUpdateQuestion = useCallback(
       debounce((id: string, updatedQuestion: Question) => {
@@ -132,18 +120,39 @@ const QuestionBlock = forwardRef<HTMLDivElement, QuestionBlockProps>(
 
     return (
       <Reorder.Item
-        key={id}
+        key={question.id}
         value={question}
         dragListener={false}
         dragControls={dragControls}
         ref={ref}
+        style={{ touchAction: "none" }}
+        initial={{ opacity: 1, y: 0 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        transition={{
+          type: "spring",
+          stiffness: 300,
+          damping: 30,
+        }}
+        whileDrag={{
+          scale: 1.02,
+          opacity: 0.5,
+        }}
       >
-        <div className={`${question?.type === "SHORT_ANSWER" ? "h-auto" : "min-h-[96px]"}  w-[527px] ${isQuestionState ? "rounded-[1rem] border-[1px] p-[1rem] border-gray-200 hover:bg-gray-50" : ""}  gap-[8px]  flex flex-col justify-between`}>
-          {/* header part common todo: separate later */}
-          <div className="flex items-center">
+        <div
+          className={`${
+            question?.type === "SHORT_ANSWER" ? "h-auto" : "min-h-[96px]"
+          } w-full sm:w-[527px] ${
+            isQuestionState
+              ? "rounded-[1rem] border-[1px] p-3 sm:p-[1rem] border-gray-200 hover:bg-gray-50"
+              : ""
+          } gap-[8px] flex flex-col justify-between mx-auto`}
+        >
+          {/* header part */}
+          <div className="flex items-center flex-wrap sm:flex-nowrap gap-2">
             {isEditing ? (
               <input
-                className="flex-1 font-inter text-[14px] leading-[20px] text-gray-900 font-semibold bg-transparent outline-none"
+                className="flex-1 min-w-0 font-inter text-[14px] leading-[20px] text-gray-900 font-semibold bg-transparent outline-none"
                 defaultValue={
                   question?.title ||
                   (type !== "URL"
@@ -162,7 +171,13 @@ const QuestionBlock = forwardRef<HTMLDivElement, QuestionBlockProps>(
               />
             ) : (
               <span
-                className={`flex-1 font-inter text-[14px] leading-[20px] ${isQuestionState ? "text-gray-400" : "text-black"} font-semibold cursor-text`}
+                className={`flex-1 min-w-0 font-inter text-[14px] leading-[20px] ${
+                  isQuestionState ? "text-gray-400" : "text-black"
+                } ${
+                  isAnswerInputValid !== undefined &&
+                  !isAnswerInputValid &&
+                  "!text-red-500"
+                } font-semibold cursor-text break-words`}
                 onClick={() => (isQuestionState ? setIsEditing(true) : null)}
               >
                 {question?.title || "Click here to edit question text"}
@@ -188,14 +203,20 @@ const QuestionBlock = forwardRef<HTMLDivElement, QuestionBlockProps>(
           </div>
 
           {type !== "SINGLE_SELECT" && (
-            <div className={`w-full min-h-[32px]  rounded-[8px] border-[1px] border-gray-200 ${isQuestionState ? "bg-gray-100" : "bg-white"} py-[6px] px-[8px]`}>
+            <div
+              className={`w-full min-h-[32px] rounded-[8px] border-[1px] border-gray-200 ${
+                isQuestionState ? "bg-gray-100" : "bg-white"
+              } py-[6px] px-[8px]`}
+            >
               {type === "SHORT_ANSWER" && (
                 <input
                   className="w-full h-full bg-transparent outline-none border-none "
                   type="text"
                   name={id}
                   id={id}
-                  onChange={(e) => debouncedUpdateAnswer(question?.id, e.target.value)}
+                  onChange={(e) =>
+                    debouncedUpdateAnswer(question?.id, e.target.value)
+                  }
                   disabled={isQuestionState}
                 />
               )}
@@ -205,7 +226,9 @@ const QuestionBlock = forwardRef<HTMLDivElement, QuestionBlockProps>(
                   name={id}
                   id={id}
                   rows={5}
-                  onChange={(e) => debouncedUpdateAnswer(question?.id, e.target.value)}
+                  onChange={(e) =>
+                    debouncedUpdateAnswer(question?.id, e.target.value)
+                  }
                   disabled={isQuestionState}
                 />
               )}
@@ -216,7 +239,9 @@ const QuestionBlock = forwardRef<HTMLDivElement, QuestionBlockProps>(
                   type="number"
                   name={id}
                   id={id}
-                  onChange={(e) => debouncedUpdateAnswer(question?.id, e.target.value)}
+                  onChange={(e) =>
+                    debouncedUpdateAnswer(question?.id, e.target.value)
+                  }
                   disabled={isQuestionState}
                 />
               )}
@@ -228,7 +253,9 @@ const QuestionBlock = forwardRef<HTMLDivElement, QuestionBlockProps>(
                   type="url"
                   name={id}
                   id={id}
-                  onChange={(e) => debouncedUpdateAnswer(question?.id, e.target.value)}
+                  onChange={(e) =>
+                    debouncedUpdateAnswer(question?.id, e.target.value)
+                  }
                   disabled={isQuestionState}
                 />
               )}
@@ -245,7 +272,7 @@ const QuestionBlock = forwardRef<HTMLDivElement, QuestionBlockProps>(
                         {questions?.[index]?.radioOptions?.map(
                           (item: any, i) => (
                             <div
-                              key={`i-${item?.label}`}
+                              key={`${i}-${item?.label}`}
                               className="flex items-center gap-1"
                             >
                               <input

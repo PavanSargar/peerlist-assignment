@@ -1,5 +1,5 @@
 import React from "react";
-import CreateForm from "../(components)/create-form";
+import CreateForm from "../(components)/form";
 
 type Props = {};
 

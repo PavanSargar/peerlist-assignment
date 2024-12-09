@@ -16,6 +16,8 @@ interface QuestionStore {
     radioIndex: number,
     value: string
   ) => void;
+  validateQuestions: () => boolean;
+  isFormValid: boolean;
 }
 
 const getLocalStorage = (key: string, defaultValue: any) => {
@@ -42,7 +44,7 @@ export const useQuestionStore = create<QuestionStore>((set) => ({
     })),
   updateAnswer: (id: string, answer: string | number) =>
     set((state) => ({
-      questions: state.questions.map((q) => 
+      questions: state.questions.map((q) =>
         q.id === id ? { ...q, answer } : q
       ),
     })),
@@ -73,4 +75,25 @@ export const useQuestionStore = create<QuestionStore>((set) => ({
         order: i,
       })),
     })),
+  validateQuestions: () => {
+    let isFormValid = false;
+    set((state) => {
+      let isValid = true;
+      const updatedQuestions = state.questions.map((q) => {
+        const questionValid = q.answer !== undefined && q.answer !== "";
+        if (!questionValid) isValid = false;
+        return {
+          ...q,
+          isValid: questionValid,
+        };
+      });
+      isFormValid = isValid;
+      return {
+        questions: updatedQuestions,
+        isFormValid: isValid,
+      };
+    });
+    return isFormValid;
+  },
+  isFormValid: false,
 }));

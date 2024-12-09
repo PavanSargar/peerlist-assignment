@@ -1,4 +1,4 @@
-import CreateForm from "./(components)/create-form";
+import CreateForm from "./(components)/form";
 
 export default function Home() {
   return (

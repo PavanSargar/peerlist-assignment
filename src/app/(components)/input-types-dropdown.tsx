@@ -47,7 +47,7 @@ const InputTypesDropdown = ({ onSelect, text }: Props) => {
       </div>
 
       <div
-        className={`absolute z-50 top-full left-0 mt-1 min-w-[300px] rounded-[16px] bg-white shadow-lg border-[1px] p-[4px] border-gray-200 
+        className={`absolute z-[999] top-full left-0 mt-1  min-w-[200px] lg:min-w-[300px] rounded-[16px] bg-white shadow-lg border-[1px] p-[4px] border-gray-200 
         transition-[opacity,visibility] flex flex-col gap-1
         ${isOpen ? "visible opacity-100" : "invisible opacity-0"}`}
       >
